@@ -1,0 +1,41 @@
+# StoryCore
+
+Shared, versioned export contract for the StoryBook AI family of apps — currently [StoryBook AI](https://github.com/ocedo-apps/StoryBook-AI) and [ComicBook AI](https://github.com/ocedo-apps/ComicBook-AI).
+
+## What this is
+
+A small TypeScript package: a [Zod](https://zod.dev) schema and a validator for `ManuscriptExport`, the one shape StoryBook AI exports and sibling apps import. Nothing else. **StoryCore holds no data of its own** — no database, no server, no shared storage. It is a shared vocabulary, not a shared place.
+
+## The invariant this package exists to enforce
+
+**StoryBook AI owns Story Bible canon. Every other app is a reader of a point-in-time export, never a writer back into it.**
+
+- An export is a snapshot. There is no live link — a change in StoryBook AI after the export was taken is invisible to the app that imported it until a new export is made.
+- `ManuscriptExport` only contains **locked, visible** facts — the same visibility rule Draft itself uses (`visibleLockedFacts`: locked, not superseded, not hidden from the model, not a hidden entity). An unreviewed or flagged fact is never exported as if it were settled canon.
+- If a sibling app produces something worth bringing back — a generated character portrait, a detail invented while adapting a chapter — the way back is never a direct write into another app's data. It goes through that app's own existing human review queue (e.g. StoryBook AI's Import lore flow), exactly like any other unverified source (an extractor, an interview, a brainstorm note). Source app is not a reason to skip review.
+
+If a change ever needs a direct write path between two apps' own data, that is a different, far more sensitive decision than anything this package does — not something to introduce quietly as a side effect of using StoryCore.
+
+## Why the export schema isn't StoryBook AI's internal `Book` type
+
+StoryBook AI's own `Book` schema changes often — new fields land most releases. Binding a sibling app to that internal shape directly would make ordinary StoryBook AI development a constant risk of breaking every sibling app. `ManuscriptExport` is deliberately smaller and changes only when the *contract* changes, versioned via its own `format` number — independent of StoryBook AI's own version number.
+
+## Usage
+
+```ts
+import { parseManuscriptExport, ManuscriptExportError } from "@ocedo-apps/storycore";
+
+try {
+  const manuscript = parseManuscriptExport(JSON.parse(raw));
+  // manuscript.bible is already grouped by BibleKind (characters, locations, objects, groups, events, concepts)
+  // manuscript.chapters is already in reading order
+} catch (err) {
+  if (err instanceof ManuscriptExportError) {
+    // err.code: "not-export" | "wrong-kind" | "newer-format" | "invalid"
+  }
+}
+```
+
+## Status
+
+v0.1.0 — first cut, StoryBook AI → ComicBook AI direction only. `MANUSCRIPT_EXPORT_FORMAT = 1`.
