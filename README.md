@@ -39,3 +39,7 @@ try {
 ## Status
 
 v0.1.0 — first cut, StoryBook AI → ComicBook AI direction only. `MANUSCRIPT_EXPORT_FORMAT = 1`.
+
+## License
+
+GPL-3.0, same as [StoryBook AI](https://github.com/ocedo-apps/StoryBook-AI) — see [LICENSE](LICENSE).
