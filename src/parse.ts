@@ -1,4 +1,4 @@
-import { ManuscriptExportSchema, MANUSCRIPT_EXPORT_FORMAT, MANUSCRIPT_EXPORT_KIND, type ManuscriptExport } from "./schema";
+import { ManuscriptExportSchema, MANUSCRIPT_EXPORT_FORMAT, MANUSCRIPT_EXPORT_KIND, type ManuscriptExport } from "./schema.js";
 
 export type ManuscriptExportErrorCode = "not-export" | "wrong-kind" | "newer-format" | "invalid";
 

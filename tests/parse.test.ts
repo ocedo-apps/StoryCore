@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ManuscriptExportError, parseManuscriptExport } from "../src/parse";
-import { MANUSCRIPT_EXPORT_FORMAT, MANUSCRIPT_EXPORT_KIND, type ManuscriptExport } from "../src/schema";
+import { ManuscriptExportError, parseManuscriptExport } from "../src/parse.js";
+import { MANUSCRIPT_EXPORT_FORMAT, MANUSCRIPT_EXPORT_KIND, type ManuscriptExport } from "../src/schema.js";
 
 const validExport: ManuscriptExport = {
   kind: MANUSCRIPT_EXPORT_KIND,
