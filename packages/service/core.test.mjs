@@ -217,6 +217,42 @@ test('private manuscript snapshots keep immutable owner-only versions separate f
   } finally { server.close(); await once(server, 'close'); core.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('private manuscripts can be listed for Import Codex book on a machine without the book locally', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'core-private-list-'));
+  const core = openCore(join(dir, 'core.db'));
+  const tokens = Object.fromEntries(['storybook', 'sandbox', 'comic'].map(app => [app, core.provision(app)]));
+  const server = createCoreServer(core);
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (app, method, path, data) => {
+    const response = await fetch(base + path, {
+      method, headers: { authorization: `Bearer ${tokens[app]}`, ...(data ? { 'content-type': 'application/json' } : {}) },
+      ...(data ? { body: JSON.stringify(data) } : {})
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  try {
+    assert.deepEqual((await call('storybook', 'GET', '/v1/private-manuscripts')).body, []);
+    assert.equal((await call('sandbox', 'GET', '/v1/private-manuscripts')).status, 403);
+    await call('storybook', 'PUT', '/v1/private-manuscripts/book-one', { book: { id: 'book-one', title: 'First Light', chapters: [] } });
+    await new Promise(resolve => setTimeout(resolve, 2));
+    await call('storybook', 'PUT', '/v1/private-manuscripts/book-two', { book: { id: 'book-two', title: 'Second Dawn', chapters: [] } });
+    const listed = (await call('storybook', 'GET', '/v1/private-manuscripts')).body;
+    // Most recently saved first, title and revision present but no book body -
+    // the picker only needs enough to show a list, not the whole manuscript.
+    assert.deepEqual(listed.map(entry => entry.projectId), ['book-two', 'book-one']);
+    assert.deepEqual(listed.map(entry => entry.title), ['Second Dawn', 'First Light']);
+    assert.ok(listed.every(entry => entry.revision === 1 && typeof entry.updatedAt === 'string' && !('body' in entry)));
+    // Re-saving the same content is a no-op revision-wise, but the list is
+    // driven by the record's own updated_at, not purely revision count -
+    // touching book-one again should move it back to the front.
+    await new Promise(resolve => setTimeout(resolve, 2));
+    await call('storybook', 'PUT', '/v1/private-manuscripts/book-one', { book: { id: 'book-one', title: 'First Light', chapters: [{ prose: 'New' }] } });
+    const reordered = (await call('storybook', 'GET', '/v1/private-manuscripts')).body;
+    assert.deepEqual(reordered.map(entry => entry.projectId), ['book-one', 'book-two']);
+  } finally { server.close(); await once(server, 'close'); core.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('shared manuscript publishing stores only a validated projection and atomically changes readers', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'core-shared-manuscript-'));
   const core = openCore(join(dir, 'core.db'));

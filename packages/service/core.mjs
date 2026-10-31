@@ -343,6 +343,26 @@ export function openCore(path) {
       const rec = get('SELECT id FROM records WHERE workspace_id=? AND entity_id=?', ws.id, 'full-book');
       return { workspace: ws, revisions: rec ? all('SELECT id,workspace_id,number,created_at,deleted FROM revisions WHERE record_id=? ORDER BY number DESC', rec.id) : [] };
     },
+    /**
+     * Every book Storybook has ever privately snapshotted here, titled and
+     * dated but without the (possibly large) book body - a picker list for
+     * "Import Codex book" on a machine that doesn't have the manuscript
+     * locally at all, so there's no project_id to ask privateManuscriptVersions
+     * about yet. The caller still fetches the actual content through the
+     * existing versions + revision routes once a project_id is picked from
+     * this list, same as restoring an old version of a book already known
+     * locally - this just supplies the project_id when nothing local does.
+     */
+    listPrivateManuscripts(app) {
+      if (app !== 'storybook') fail(403, 'Only Storybook can list private manuscripts');
+      return all(`SELECT w.project_id,r.revision,r.body,r.updated_at
+        FROM workspaces w JOIN records r ON r.workspace_id=w.id AND r.entity_id='full-book' AND r.deleted=0
+        WHERE w.owner_app=? AND w.kind='private-snapshot'
+        ORDER BY r.updated_at DESC`, app).map(row => ({
+          projectId: row.project_id, revision: row.revision,
+          title: JSON.parse(row.body).title, updatedAt: row.updated_at
+        }));
+    },
     writeRecord(app, id, input) {
       return transaction(() => {
         const ws = authorize(app, id, 'write');
@@ -545,6 +565,7 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
       else if (parts.length === 3 && parts[1] === 'shared-manuscripts' && method === 'PUT') result = core.publishSharedManuscript(app, parts[2], await body());
       else if (parts.length === 3 && parts[1] === 'shared-manuscripts' && method === 'DELETE') result = core.revokeSharedManuscript(app, parts[2]);
       else if (parts.length === 4 && parts[1] === 'shared-manuscripts' && parts[3] === 'access' && method === 'GET') result = core.sharedManuscriptAccess(app, parts[2]);
+      else if (parts.length === 2 && parts[1] === 'private-manuscripts' && method === 'GET') result = core.listPrivateManuscripts(app);
       else if (parts.length === 3 && parts[1] === 'private-manuscripts' && method === 'PUT') result = core.savePrivateManuscript(app, parts[2], await body());
       else if (parts.length === 4 && parts[1] === 'private-manuscripts' && parts[3] === 'versions' && method === 'GET') result = core.privateManuscriptVersions(app, parts[2]);
       else if (parts.length === 2 && parts[1] === 'workspaces' && method === 'POST') result = core.createWorkspace(app, await body());
